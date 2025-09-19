@@ -1,4 +1,6 @@
-use candle_core::{D, DType, Device, Tensor};
+use candle_core::{D, DType, Device, Tensor, Module};
+use candle_nn::{linear_no_bias, VarMap, VarBuilder};
+
 
 fn cdist(x1: &Tensor, x2: &Tensor) -> Result<Tensor, Box<dyn std::error::Error>> {
     let x1 = x1.unsqueeze(0)?;
@@ -313,27 +315,34 @@ fn reshape_test() -> Result<(), Box<dyn std::error::Error>> {
 #[allow(dead_code)]
 fn attention_test() -> Result<(), Box<dyn std::error::Error>> {
     let device = Device::new_cuda(0)?;
+    
     let B = 4;
     let T = 8;
     let d = 16;
+    let n_heads = 1;
+    let d_k = d / n_heads;
     let V = 100;
 
     let X = Tensor::rand(0f32, 1., (B, T, d), &device)?;
     println!("X {:?}", X);
 
-    let W_Q = Tensor::rand(0f32, 1., (d, d), &device)?;
-    let W_K = Tensor::rand(0f32, 1., (d, d), &device)?;
-    let W_V = Tensor::rand(0f32, 1., (d, d), &device)?;
+    let varmap = VarMap::new();
+    let vb = VarBuilder::from_varmap(&varmap, DType::F32, &device);
+    let W_Q = linear_no_bias(d, d_k, vb.pp("W_Q"))?;
+    let W_K = linear_no_bias(d, d_k, vb.pp("W_K"))?;
+    let W_V = linear_no_bias(d, d_k, vb.pp("W_V"))?;
+
     println!("W_Q {:?}", W_Q);
     println!("W_K {:?}", W_K);
     println!("W_V {:?}", W_V);
 
-    let Q = X.reshape((B * T, d))?.matmul(&W_Q)?;
-    let K = X.reshape((B * T, d))?.matmul(&W_K)?;
-    let V = X.reshape((B * T, d))?.matmul(&W_V)?;
-    println!("Q {:?}", Q);
-    println!("K {:?}", K);
-    println!("V {:?}", V);
+    let q = W_Q.forward(&X)?;
+    let k = W_K.forward(&X)?;
+
+    let wei = q.matmul(&k.transpose(D::Minus1, D::Minus2)?)?;
+    println!("Wei {:?}", wei);
+    let tril = Tensor::tril2(T, DType::F32, &device)?;
+    println!("Tril {:?}", tril);
     Ok(())
 }
 
