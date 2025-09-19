@@ -301,6 +301,16 @@ fn tril_test() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[allow(dead_code)]
+fn reshape_test() -> Result<(), Box<dyn std::error::Error>> {
+    let device = Device::new_cuda(0)?;
+    let tensor = Tensor::rand(0f32, 1., (2, 4, 4), &device)?;
+    println!("Tensor {}", tensor);
+    let tensor = tensor.reshape((8, 4))?;
+    println!("Squeezed Tensor {}", tensor);
+    Ok(())
+}
+
+#[allow(dead_code)]
 fn attention_test() -> Result<(), Box<dyn std::error::Error>> {
     let device = Device::new_cuda(0)?;
     let B = 4;
@@ -311,19 +321,16 @@ fn attention_test() -> Result<(), Box<dyn std::error::Error>> {
     let X = Tensor::rand(0f32, 1., (B, T, d), &device)?;
     println!("X {:?}", X);
 
-    let n_heads = B;
-    let d_k = d / n_heads;
-
-    let W_Q = Tensor::rand(0f32, 1., (d, d_k), &device)?;
-    let W_K = Tensor::rand(0f32, 1., (d, d_k), &device)?;
-    let W_V = Tensor::rand(0f32, 1., (d, d_k), &device)?;
+    let W_Q = Tensor::rand(0f32, 1., (d, d), &device)?;
+    let W_K = Tensor::rand(0f32, 1., (d, d), &device)?;
+    let W_V = Tensor::rand(0f32, 1., (d, d), &device)?;
     println!("W_Q {:?}", W_Q);
     println!("W_K {:?}", W_K);
     println!("W_V {:?}", W_V);
 
-    let Q = X.matmul(&W_Q)?;
-    let K = X.matmul(&W_K)?;
-    let V = X.matmul(&W_V)?;
+    let Q = X.reshape((B * T, d))?.matmul(&W_Q)?;
+    let K = X.reshape((B * T, d))?.matmul(&W_K)?;
+    let V = X.reshape((B * T, d))?.matmul(&W_V)?;
     println!("Q {:?}", Q);
     println!("K {:?}", K);
     println!("V {:?}", V);
