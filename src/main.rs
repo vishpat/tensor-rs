@@ -1,5 +1,4 @@
-use candle_core::{DType, Device, Tensor, D};
-use ndarray::array;
+use candle_core::{D, DType, Device, Tensor};
 
 fn cdist(x1: &Tensor, x2: &Tensor) -> Result<Tensor, Box<dyn std::error::Error>> {
     let x1 = x1.unsqueeze(0)?;
@@ -24,7 +23,7 @@ fn zscore_normalize(data: &Tensor) -> Result<Tensor, Box<dyn std::error::Error>>
 fn cov(data: &Tensor, device: &Device) -> Result<Tensor, Box<dyn std::error::Error>> {
     let mean = data.mean(0)?;
     let centered = data.broadcast_sub(&mean)?;
-    let (m, n) = data.shape().dims2()?;
+    let (m, _) = data.shape().dims2()?;
     let cov = centered
         .transpose(D::Minus1, D::Minus2)?
         .matmul(&centered)?
@@ -51,36 +50,6 @@ fn vector() -> Result<(), Box<dyn std::error::Error>> {
     println!("{vector_tensor}");
     println!("ndim {:?}", vector_tensor.dims().len());
     println!("shape {:?}", vector_tensor.shape());
-    Ok(())
-}
-
-#[allow(dead_code)]
-fn init_matrix1() -> Result<(), Box<dyn std::error::Error>> {
-    let arr = array![[1., 2.], [4., 5.]];
-    println!("ndarray: {:?}", arr);
-
-    let arr_slice = arr.into_shape((2, 2)).to_owned()?.into_raw_vec();
-    println!("Slice: {:?}", arr_slice);
-
-    let device = Device::new_cuda(0)?;
-    let tensor = Tensor::from_slice(&arr_slice, (2, 2), &device);
-    println!("Candle {:?}", tensor);
-    Ok(())
-}
-
-#[allow(dead_code)]
-fn init_matrix2() -> Result<(), Box<dyn std::error::Error>> {
-    let arr = array![[1., 2., 3.], [4., 5., 6.]];
-    let arr_slice = arr.into_shape((2, 3)).to_owned()?.into_raw_vec();
-    let device = Device::new_cuda(0)?;
-    let tensor = Tensor::from_slice(&arr_slice, (2, 3), &device)?;
-
-    let tensor_ones = Tensor::ones(tensor.shape(), DType::F32, &device)?;
-    println!("Ones tensor {tensor_ones}");
-
-    let tensor_rand = Tensor::rand(0f32, 1., tensor.shape(), &device)?;
-    println!("Rand tensor {tensor_rand}");
-
     Ok(())
 }
 
@@ -308,7 +277,7 @@ fn rmsnorm_test() -> Result<(), Box<dyn std::error::Error>> {
     let hidden_size = data.dim(D::Minus1)?;
     let eps = 1e-5;
     let norm_x = ((data.sqr()?.sum_keepdim(D::Minus1)? / hidden_size as f64)? + eps)?.sqrt()?;
-    let x_norm = data.broadcast_div(&norm_x)?;
+    let _ = data.broadcast_div(&norm_x)?;
     println!("Data {data}");
     println!("Norm x {norm_x}");
 
@@ -316,19 +285,22 @@ fn rmsnorm_test() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[allow(dead_code)]
-fn attention_test() -> Result<(), Box<dyn std::error::Error>> {
+fn tril_test() -> Result<(), Box<dyn std::error::Error>> {
     let device = Device::new_cuda(0)?;
+    let tril = Tensor::tril2(8, DType::F32, &device)?;
+    println!("Tril {}", tril);
 
-    let X = Tensor::rand(0f32, 1., (4, 8, 4), &device)?;
-    println!("Data {X}");
+    let sum = tril.sum(D::Minus1)?;
+    let sum = sum.unsqueeze(1)?;
+    println!("Sum {}", sum);
 
-    let tril = Tensor::tril2(X.dim(1)?, DType::U32, &device)?;
-    println!("Tril {tril}");
+    let normalized_tril = tril.broadcast_div(&sum)?;
+    println!("Normalized Tril {}", normalized_tril);
 
     Ok(())
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    attention_test()?;
+    tril_test()?;
     Ok(())
 }
