@@ -338,7 +338,7 @@ fn attention_test() -> Result<(), Box<dyn std::error::Error>> {
     let B = 4;
     let T = 8;
     let d = 16;
-    let n_heads = 1;
+    let n_heads = 2;
     let d_k = d / n_heads;
     let V = 100;
 
@@ -358,14 +358,15 @@ fn attention_test() -> Result<(), Box<dyn std::error::Error>> {
     let q = W_Q.forward(&X)?;
     let k = W_K.forward(&X)?;
 
-    let wei = q.matmul(&k.transpose(D::Minus1, D::Minus2)?)?;
+    let wei = (q.matmul(&k.transpose(D::Minus1, D::Minus2)?)? / (d_k as f64).sqrt())?;
     let mask = attention_mask(T)?;
     let wei = wei.broadcast_add(&mask)?;
     let wei = candle_nn::ops::softmax(&wei, D::Minus1)?;
-    
+    println!("Wei {}", wei);
+
     let v = W_V.forward(&X)?;
-    let X = wei.matmul(&v)?;
-    println!("X {:?}", X);
+    let out = wei.matmul(&v)?;
+    println!("Out {:?}", out);
     Ok(())
 }
 
