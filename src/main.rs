@@ -308,16 +308,9 @@ fn softmax_test() -> Result<(), Box<dyn std::error::Error>> {
         .flat_map(|i| (0..8).map(move |j| if i < j { f32::NEG_INFINITY } else { 1f32 }))
         .collect();
     let mask = Tensor::from_slice(&mask, (8, 8), &device)?;
-    println!("Mask {}", mask);
-
-    let tril = Tensor::tril2(8, DType::F32, &Device::new_cuda(0)?)?;
-    println!("Tril {}", tril);
     let wei = Tensor::rand(0f32, 1., (8, 8), &Device::new_cuda(0)?)?;
-    println!("Wei {}", wei);
     let wei = wei.broadcast_mul(&mask)?;
-    println!("Wei {}", wei);
     let wei = candle_nn::ops::softmax(&wei, D::Minus1)?;
-    println!("Softmax Wei {}", wei);
 
     Ok(())
 }
