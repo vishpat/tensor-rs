@@ -1,6 +1,5 @@
-use candle_core::{D, DType, Device, Tensor, Module};
-use candle_nn::{linear_no_bias, VarMap, VarBuilder};
-
+use candle_core::{D, DType, Device, Module, Tensor};
+use candle_nn::{VarBuilder, VarMap, linear_no_bias};
 
 fn cdist(x1: &Tensor, x2: &Tensor) -> Result<Tensor, Box<dyn std::error::Error>> {
     let x1 = x1.unsqueeze(0)?;
@@ -303,6 +302,26 @@ fn tril_test() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[allow(dead_code)]
+fn softmax_test() -> Result<(), Box<dyn std::error::Error>> {
+    let device = Device::new_cuda(0)?;
+    let mask: Vec<f32> = (0..8)
+        .flat_map(|i| (0..8).map(move |j| if i < j { f32::NEG_INFINITY } else { 1f32 }))
+        .collect();
+    let mask = Tensor::from_slice(&mask, (8, 8), &device)?;
+    println!("Mask {}", mask);
+
+    let tril = Tensor::tril2(8, DType::F32, &Device::new_cuda(0)?)?;
+    println!("Tril {}", tril);
+    let wei = Tensor::rand(0f32, 1., (8, 8), &Device::new_cuda(0)?)?;
+    println!("Wei {}", wei);
+    let wei = wei.broadcast_mul(&mask)?;
+    println!("Wei {}", wei);
+    let wei = candle_nn::ops::softmax(&wei, D::Minus1)?;
+    println!("Softmax Wei {}", wei);
+
+    Ok(())
+}
+#[allow(dead_code)]
 fn reshape_test() -> Result<(), Box<dyn std::error::Error>> {
     let device = Device::new_cuda(0)?;
     let tensor = Tensor::rand(0f32, 1., (2, 4, 4), &device)?;
@@ -315,10 +334,10 @@ fn reshape_test() -> Result<(), Box<dyn std::error::Error>> {
 #[allow(dead_code)]
 fn attention_test() -> Result<(), Box<dyn std::error::Error>> {
     let device = Device::new_cuda(0)?;
-    
+
     let B = 4;
     let T = 8;
-    let d = 16;
+    let d = 2;
     let n_heads = 1;
     let d_k = d / n_heads;
     let V = 100;
@@ -340,13 +359,14 @@ fn attention_test() -> Result<(), Box<dyn std::error::Error>> {
     let k = W_K.forward(&X)?;
 
     let wei = q.matmul(&k.transpose(D::Minus1, D::Minus2)?)?;
-    println!("Wei {:?}", wei);
     let tril = Tensor::tril2(T, DType::F32, &device)?;
-    println!("Tril {:?}", tril);
+    println!("Tril {}", tril);
+    let wei = candle_nn::ops::softmax(&wei, D::Minus1)?;
+    println!("Wei {}", wei);
     Ok(())
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    attention_test()?;
+    softmax_test()?;
     Ok(())
 }
