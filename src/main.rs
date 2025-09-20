@@ -305,13 +305,13 @@ fn tril_test() -> Result<(), Box<dyn std::error::Error>> {
 fn softmax_test() -> Result<(), Box<dyn std::error::Error>> {
     let device = Device::new_cuda(0)?;
     let mask: Vec<f32> = (0..8)
-        .flat_map(|i| (0..8).map(move |j| if i < j { f32::NEG_INFINITY } else { 1f32 }))
+        .flat_map(|i| (0..8).map(move |j| if i < j { f32::NEG_INFINITY } else { 0f32 }))
         .collect();
     let mask = Tensor::from_slice(&mask, (8, 8), &device)?;
     let wei = Tensor::rand(0f32, 1., (8, 8), &Device::new_cuda(0)?)?;
-    let wei = wei.broadcast_mul(&mask)?;
+    let wei = wei.broadcast_add(&mask)?;
     let wei = candle_nn::ops::softmax(&wei, D::Minus1)?;
-
+    println!("Softmax Wei {}", wei);
     Ok(())
 }
 #[allow(dead_code)]
