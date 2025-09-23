@@ -326,6 +326,40 @@ fn softmax_test() -> Result<(), Box<dyn std::error::Error>> {
     println!("Softmax Wei {}", wei);
     Ok(())
 }
+
+#[allow(dead_code)]
+fn rope_test() -> Result<(), Box<dyn std::error::Error>> {
+    println!("Rope Test");
+    let device = Device::new_cuda(0)?;
+    let rope_freq: f32 = 10000.0;
+    let dim = 4;
+    let max_seq_len = 16;
+    println!("embed_dim: {}", dim);
+    println!("max_seq_len: {}", max_seq_len);
+    println!("rope_freq: {}", rope_freq);
+    
+    let inv_freq: Vec<_> = (0..dim)
+        .step_by(2)
+        .map(|i| 1f32 / rope_freq.powf(i as f32 / dim as f32))
+        .collect();
+    let inv_freq_len = inv_freq.len();
+    let inv_freq = Tensor::from_vec(inv_freq, (1, inv_freq_len), &device)?.to_dtype(DType::F32)?;
+    let t = Tensor::arange(0u32, max_seq_len as u32, &device)?
+        .to_dtype(DType::F32)?
+        .reshape((max_seq_len, 1))?;
+    let freqs = t.matmul(&inv_freq)?;
+    println!("freqs: {:?}", freqs);
+    let sin_freqs = freqs.sin()?;
+    let cos_freqs = freqs.cos()?;
+    println!("sin_freqs: {:?}", sin_freqs);
+    println!("cos_freqs: {:?}", cos_freqs);
+
+    let batch_size = 2;
+    let x = Tensor::rand(0f32, 1., (batch_size, max_seq_len, dim), &device)?;
+    println!("x: {:?}", x);
+    Ok(())
+}
+
 #[allow(dead_code)]
 fn reshape_test() -> Result<(), Box<dyn std::error::Error>> {
     let device = Device::new_cuda(0)?;
@@ -376,6 +410,6 @@ fn attention_test() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    rmsnorm_test()?;
+    rope_test()?;
     Ok(())
 }
