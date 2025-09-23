@@ -273,14 +273,19 @@ fn variance_test() -> Result<(), Box<dyn std::error::Error>> {
 fn rmsnorm_test() -> Result<(), Box<dyn std::error::Error>> {
     let device = Device::new_cuda(0)?;
 
-    let data = vec![2., 4., 6., 1., 3., 5., 3., 6., 9., 4., 8., 12.];
-    let data = Tensor::from_slice(&data, (4, 3), &device)?;
-    let hidden_size = data.dim(D::Minus1)?;
-    let eps = 1e-5;
-    let norm_x = ((data.sqr()?.sum_keepdim(D::Minus1)? / hidden_size as f64)? + eps)?.sqrt()?;
-    let _ = data.broadcast_div(&norm_x)?;
-    println!("Data {data}");
-    println!("Norm x {norm_x}");
+    let data = Tensor::rand(0f32, 1., (2, 3, 4), &device)?;
+    let x = data;
+    let x_dtype = x.dtype();
+    let internal_dtype = match x_dtype {
+        DType::F16 | DType::BF16 => DType::F32,
+        d => d,
+    };
+    let hidden_size = x.dim(D::Minus1)?;
+    let x = x.to_dtype(internal_dtype)?;
+    let norm_x = (x.sqr()?.sum_keepdim(D::Minus1)? / hidden_size as f64)?;
+    let x_normed = x.broadcast_div(&(norm_x).sqrt()?)?;
+    println!("X {x}");
+    println!("Normed x {x_normed}");
 
     Ok(())
 }
@@ -338,7 +343,7 @@ fn attention_test() -> Result<(), Box<dyn std::error::Error>> {
     let B = 4;
     let T = 8;
     let d = 16;
-    let n_heads = 2;
+    let n_heads = 1;
     let d_k = d / n_heads;
     let V = 100;
 
@@ -371,6 +376,6 @@ fn attention_test() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    attention_test()?;
+    rmsnorm_test()?;
     Ok(())
 }
